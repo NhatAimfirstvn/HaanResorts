@@ -259,6 +259,12 @@ class CheckoutView {
 				?>
 			</ul>
 		</section>
+		
 		<?php
+		$html = ob_get_clean();
+		
+    $html = apply_filters( 'mphb_sc_checkout_services_list_html', $html, $services, $reservedRoom );
+
+    echo $html;
 	}
 }
