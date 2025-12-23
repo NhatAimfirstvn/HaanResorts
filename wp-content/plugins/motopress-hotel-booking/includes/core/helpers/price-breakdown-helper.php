@@ -7,14 +7,15 @@ use MPHB\Entities\Coupon;
 use MPHB\Entities\ReservedRoom;
 use MPHB\PostTypes\CouponCPT;
 
-if ( ! defined( 'ABSPATH' ) ) {
+if (! defined('ABSPATH')) {
 	exit;
 }
 
 /**
  * @since 5.0.0
  */
-class PriceBreakdownHelper {
+class PriceBreakdownHelper
+{
 	/**
 	 * @var Booking
 	 */
@@ -34,13 +35,14 @@ class PriceBreakdownHelper {
 	 * @param Booking $booking
 	 * @param bool $isUseCoupon Optional. True by default.
 	 */
-	public function __construct( Booking $booking, bool $isUseCoupon = true ) {
+	public function __construct(Booking $booking, bool $isUseCoupon = true)
+	{
 		$this->booking = $booking;
 
-		if ( $isUseCoupon && $booking->getCouponId() > 0 ) {
-			$coupon = MPHB()->getCouponRepository()->findById( $booking->getCouponId() );
+		if ($isUseCoupon && $booking->getCouponId() > 0) {
+			$coupon = MPHB()->getCouponRepository()->findById($booking->getCouponId());
 
-			if ( ! is_null( $coupon ) && $coupon->validate( $booking ) ) {
+			if (! is_null($coupon) && $coupon->validate($booking)) {
 				$this->coupon = $coupon;
 			}
 		}
@@ -50,8 +52,9 @@ class PriceBreakdownHelper {
 	 * @param Booking $booking
 	 * @return array
 	 */
-	public static function generatePriceBreakdown( Booking $booking ) {
-		$self = new static( $booking, MPHB()->settings()->main()->isCouponsEnabled() );
+	public static function generatePriceBreakdown(Booking $booking)
+	{
+		$self = new static($booking, MPHB()->settings()->main()->isCouponsEnabled());
 
 		return $self->getPriceBreakdown();
 	}
@@ -60,10 +63,11 @@ class PriceBreakdownHelper {
 	 * @param ReservedRoom $reservedRoom
 	 * @return array|null
 	 */
-	public static function getLastRoomPriceBreakdown( ReservedRoom $reservedRoom ) {
+	public static function getLastRoomPriceBreakdown(ReservedRoom $reservedRoom)
+	{
 		$reservedRoomId = $reservedRoom->getId();
 
-		if ( empty( static::$cachedRoomPriceBreakdowns[ $reservedRoomId ] ) ) {
+		if (empty(static::$cachedRoomPriceBreakdowns[$reservedRoomId])) {
 
 			$booking     = $reservedRoom->getBooking();
 			$bookedRooms = $booking ? $booking->getReservedRoomIds() : [];
@@ -71,24 +75,24 @@ class PriceBreakdownHelper {
 			// Note: imported bookings don't have a price breakdown
 			$lastPriceBreakdown = $booking ? $booking->getLastPriceBreakdown() : [];
 
-			if ( ! is_null( $booking )
-				&& ! empty( $lastPriceBreakdown['rooms'] ) // Imported bookings will fail this check
-				&& count( $lastPriceBreakdown['rooms'] ) == count( $bookedRooms )
+			if (
+				! is_null($booking)
+				&& ! empty($lastPriceBreakdown['rooms']) // Imported bookings will fail this check
+				&& count($lastPriceBreakdown['rooms']) == count($bookedRooms)
 			) {
 				// Search reserved room by index
-				for ( $i = 0; $i < count( $bookedRooms ); $i++ ) {
-					if ( $bookedRooms[ $i ] == $reservedRoomId ) {
-						static::$cachedRoomPriceBreakdowns[ $reservedRoomId ] = $lastPriceBreakdown['rooms'][ $i ];
+				for ($i = 0; $i < count($bookedRooms); $i++) {
+					if ($bookedRooms[$i] == $reservedRoomId) {
+						static::$cachedRoomPriceBreakdowns[$reservedRoomId] = $lastPriceBreakdown['rooms'][$i];
 						break;
 					}
 				}
 			}
-
 		}
 
 		// Was anything found?
-		if ( ! empty( static::$cachedRoomPriceBreakdowns[ $reservedRoomId ] ) ) {
-			return static::$cachedRoomPriceBreakdowns[ $reservedRoomId ];
+		if (! empty(static::$cachedRoomPriceBreakdowns[$reservedRoomId])) {
+			return static::$cachedRoomPriceBreakdowns[$reservedRoomId];
 		} else {
 			return null;
 		}
@@ -108,16 +112,17 @@ class PriceBreakdownHelper {
 	 *     'deposit' => float, // Optional. Deposit amount.
 	 * ]
 	 */
-	public function getPriceBreakdown( $language = null ) {
-		if ( ! $language ) {
+	public function getPriceBreakdown($language = null)
+	{
+		if (! $language) {
 			$language = $this->booking->getLanguage();
 		}
 
 		$roomsBreakdown = [];
 		$discount = $discountTotal = 0.0;
 
-		foreach ( $this->booking->getReservedRooms() as $reservedRoom ) {
-			$roomBreakdown = $this->getRoomPriceBreakdown( $reservedRoom, $language );
+		foreach ($this->booking->getReservedRooms() as $reservedRoom) {
+			$roomBreakdown = $this->getRoomPriceBreakdown($reservedRoom, $language);
 
 			$roomsBreakdown[] = $roomBreakdown;
 
@@ -129,7 +134,7 @@ class PriceBreakdownHelper {
 		 * @param float $totalPrice
 		 * @param Booking $booking
 		 */
-		$discountTotal = apply_filters( 'mphb_booking_calculate_total_price', $discountTotal, $this->booking );
+		$discountTotal = apply_filters('mphb_booking_calculate_total_price', $discountTotal, $this->booking);
 
 		$priceBreakdown = [
 			'rooms' => $roomsBreakdown,
@@ -137,7 +142,7 @@ class PriceBreakdownHelper {
 		];
 
 		// Add coupon data
-		if ( ! is_null( $this->coupon ) && $discount > 0 ) {
+		if (! is_null($this->coupon) && $discount > 0) {
 			$priceBreakdown['coupon'] = [
 				'code'     => $this->coupon->getCode(),
 				'discount' => $discount,
@@ -145,14 +150,15 @@ class PriceBreakdownHelper {
 		}
 
 		// Add deposit data
-		if ( MPHB()->settings()->main()->getConfirmationMode() == 'payment'
+		if (
+			MPHB()->settings()->main()->getConfirmationMode() == 'payment'
 			&& MPHB()->settings()->payment()->getAmountType() == 'deposit'
 		) {
-			$deposit = $this->booking->calcDepositAmount( $discountTotal );
+			$deposit = $this->booking->calcDepositAmount($discountTotal);
 
 			// $discountTotal and $deposit will be equal if not in the proper
 			// time frame for deposit
-			if ( $deposit < $discountTotal ) {
+			if ($deposit < $discountTotal) {
 				$priceBreakdown['deposit'] = $deposit;
 			}
 		}
@@ -161,7 +167,7 @@ class PriceBreakdownHelper {
 		 * @param array $priceBreakdown
 		 * @param Booking $booking
 		 */
-		$priceBreakdown = apply_filters( 'mphb_booking_price_breakdown', $priceBreakdown, $this->booking );
+		$priceBreakdown = apply_filters('mphb_booking_price_breakdown', $priceBreakdown, $this->booking);
 
 		return $priceBreakdown;
 	}
@@ -195,18 +201,19 @@ class PriceBreakdownHelper {
 	 *     'discount_total' => float, // Total price with discount
 	 * ]
 	 */
-	protected function getRoomPriceBreakdown( ReservedRoom $reservedRoom, $language = null ) {
-		if ( ! $language ) {
+	protected function getRoomPriceBreakdown(ReservedRoom $reservedRoom, $language = null)
+	{
+		if (! $language) {
 			$language = MPHB()->translation()->getCurrentLanguage();
 		}
 
-		$roomBreakdown     = $this->getRoomBreakdown( $reservedRoom, $language );
-		$servicesBreakdown = $this->getServicesBreakdown( $reservedRoom, $language );
-		$feesBreakdown     = $this->getFeesBreakdown( $reservedRoom, $roomBreakdown['discount_total'] );
+		$roomBreakdown     = $this->getRoomBreakdown($reservedRoom, $language);
+		$servicesBreakdown = $this->getServicesBreakdown($reservedRoom, $language);
+		$feesBreakdown     = $this->getFeesBreakdown($reservedRoom, $roomBreakdown['discount_total']);
 		$taxesBreakdown    = [
-			'room'     => $this->getRoomTaxesBreakdown( $reservedRoom, $roomBreakdown['discount_total'] ),
-			'services' => $this->getServiceTaxesBreakdown( $servicesBreakdown['discount_total'] ),
-			'fees'     => $this->getFeeTaxesBreakdown( $feesBreakdown['discount_total'] ),
+			'room'     => $this->getRoomTaxesBreakdown($reservedRoom, $roomBreakdown['discount_total']),
+			'services' => $this->getServiceTaxesBreakdown($servicesBreakdown['discount_total']),
+			'fees'     => $this->getFeeTaxesBreakdown($feesBreakdown['discount_total']),
 		];
 
 		// Total price without discounts. We'll use the "total" value later to
@@ -222,7 +229,7 @@ class PriceBreakdownHelper {
 			+ $servicesBreakdown['discount']
 			+ $feesBreakdown['discount'];
 
-		$discountTotal = max( 0, $totalPrice - $discount ); // Prevent total less than 0
+		$discountTotal = max(0, $totalPrice - $discount); // Prevent total less than 0
 
 		$priceBreakdown = [
 			'room'           => $roomBreakdown,
@@ -254,8 +261,9 @@ class PriceBreakdownHelper {
 	 *     'children_capacity' => int,    // Room type children capacity
 	 * ]
 	 */
-	protected function getRoomBreakdown( ReservedRoom $reservedRoom, $language = null ) {
-		if ( ! $language ) {
+	protected function getRoomBreakdown(ReservedRoom $reservedRoom, $language = null)
+	{
+		if (! $language) {
 			$language = MPHB()->translation()->getCurrentLanguage();
 		}
 
@@ -271,23 +279,40 @@ class PriceBreakdownHelper {
 			]
 		);
 
-		$roomTypeId = apply_filters( '_mphb_translate_post_id', $reservedRoom->getRoomTypeId(), $language );
-		$roomType   = $roomTypeId ? MPHB()->getRoomTypeRepository()->findById( $roomTypeId ) : null;
+		$roomTypeId = apply_filters('_mphb_translate_post_id', $reservedRoom->getRoomTypeId(), $language);
+		$roomType   = $roomTypeId ? MPHB()->getRoomTypeRepository()->findById($roomTypeId) : null;
 
-		$rate = $reservedRoom->getRate( $language );
+		// Resolve rate for the requested language: prefer Polylang mapping, then MPHB translation, then reservedRoom->getRate()
+		$rate = null;
+		$orig_rate_id = method_exists($reservedRoom, 'getRateId') ? $reservedRoom->getRateId() : 0;
+		if ($orig_rate_id) {
+			if (function_exists('pll_get_post')) {
+				$translated_rate_id = pll_get_post($orig_rate_id, $language);
+				if ($translated_rate_id) {
+					$rate = MPHB()->getRateRepository()->findById((int) $translated_rate_id);
+				}
+			}
+			if (! $rate) {
+				$rate_id = apply_filters('_mphb_translate_post_id', $orig_rate_id, $language);
+				$rate = $rate_id ? MPHB()->getRateRepository()->findById($rate_id) : null;
+			}
+		}
+		if (! $rate) {
+			$rate = $reservedRoom->getRate($language);
+		}
 
 		// [ date ('Y-m-d') => price (float) ]
-		$dayPrices  = $rate ? $rate->getPriceBreakdown( $checkInDate, $checkOutDate ) : [];
-		$totalPrice = (float) array_sum( $dayPrices );
+		$dayPrices  = $rate ? $rate->getPriceBreakdown($checkInDate, $checkOutDate) : [];
+		$totalPrice = (float) array_sum($dayPrices);
 
 		// Calc discount
-		if ( ! is_null( $this->coupon ) && $this->coupon->isApplicableForRoomType( $roomType->getOriginalId() ) ) {
-			$discount = $this->coupon->calcRoomDiscount( $dayPrices );
+		if (! is_null($this->coupon) && $this->coupon->isApplicableForRoomType($roomType->getOriginalId())) {
+			$discount = $this->coupon->calcRoomDiscount($dayPrices);
 		} else {
 			$discount = 0.0;
 		}
 
-		$discountTotal = max( 0, $totalPrice - $discount ); // Prevent total less than 0
+		$discountTotal = max(0, $totalPrice - $discount); // Prevent total less than 0
 
 		$roomBreakdown = [
 			'type'              => $roomType ? $roomType->getTitle() : '',
@@ -323,8 +348,9 @@ class PriceBreakdownHelper {
 	 *     'discount_total' => float, // Added since 5.0.0
 	 * ]
 	 */
-	protected function getServicesBreakdown( ReservedRoom $reservedRoom, $language = null ) {
-		if ( ! $language ) {
+	protected function getServicesBreakdown(ReservedRoom $reservedRoom, $language = null)
+	{
+		if (! $language) {
 			$language = MPHB()->translation()->getCurrentLanguage();
 		}
 
@@ -340,24 +366,34 @@ class PriceBreakdownHelper {
 			'discount_total' => 0.0, // Added since 5.0.0
 		];
 
-		foreach ( $reservedRoom->getReservedServices() as $reservedService ) {
-			$serviceId    = apply_filters( '_mphb_translate_post_id', $reservedService->getId(), $language );
-			$service      = MPHB()->getServiceRepository()->findById( $serviceId );
-			$servicePrice = $reservedService->calcPrice( $checkInDate, $checkOutDate );
+		foreach ($reservedRoom->getReservedServices() as $reservedService) {
+			$orig_service_id = $reservedService->getId();
+			$serviceId = $orig_service_id;
+			if ($serviceId && function_exists('pll_get_post')) {
+				$translated_service_id = pll_get_post($serviceId, $language);
+				if ($translated_service_id) {
+					$serviceId = (int) $translated_service_id;
+				}
+			} else {
+				$serviceId = apply_filters('_mphb_translate_post_id', $serviceId, $language);
+			}
+			$service      = $serviceId ? MPHB()->getServiceRepository()->findById($serviceId) : null;
+			$servicePrice = $reservedService->calcPrice($checkInDate, $checkOutDate);
 
 			// Calc discount
-			if ( ! is_null( $this->coupon )
-				&& $this->coupon->isApplicableForRoomType( $roomTypeId )
-				&& $this->coupon->isApplicableForService( $reservedService->getId() )
+			if (
+				! is_null($this->coupon)
+				&& $this->coupon->isApplicableForRoomType($roomTypeId)
+				&& $this->coupon->isApplicableForService($reservedService->getId())
 			) {
-				$discount = $this->coupon->calcServiceDiscount( $servicePrice );
+				$discount = $this->coupon->calcServiceDiscount($servicePrice);
 			} else {
 				$discount = 0.0;
 			}
 
 			$servicesBreakdown['list'][] = [
 				'title'   => $service ? $service->getTitle() : $reservedService->getTitle(),
-				'details' => $reservedService->toString( 'price', $nights ),
+				'details' => $reservedService->toString('price', $nights),
 				'total'   => $servicePrice,
 			];
 
@@ -366,10 +402,11 @@ class PriceBreakdownHelper {
 		}
 
 		// Limit fixed discount
-		if ( ! is_null( $this->coupon )
+		if (
+			! is_null($this->coupon)
 			&& $this->coupon->getServiceDiscountType() == CouponCPT::TYPE_SERVICE_FIXED
 		) {
-			$servicesBreakdown['discount'] = min( $servicesBreakdown['discount'], $this->coupon->getServiceAmount() );
+			$servicesBreakdown['discount'] = min($servicesBreakdown['discount'], $this->coupon->getServiceAmount());
 		}
 
 		// Prevent total less than 0
@@ -397,13 +434,14 @@ class PriceBreakdownHelper {
 	 *     'discount_total' => float, // Added since 5.0.0
 	 * ]
 	 */
-	protected function getFeesBreakdown( ReservedRoom $reservedRoom, float $roomDiscountTotal ) {
+	protected function getFeesBreakdown(ReservedRoom $reservedRoom, float $roomDiscountTotal)
+	{
 		$nights     = $this->booking->getNightsCount();
 		$adults     = $reservedRoom->getAdults();
 		$children   = $reservedRoom->getChildren();
 		$roomTypeId = $reservedRoom->getRoomTypeId();
 
-		$fees = MPHB()->settings()->taxesAndFees()->getFees( $roomTypeId );
+		$fees = MPHB()->settings()->taxesAndFees()->getFees($roomTypeId);
 
 		$feesBreakdown = [
 			'list'           => [],
@@ -412,41 +450,42 @@ class PriceBreakdownHelper {
 			'discount_total' => 0.0, // Added since 5.0.0
 		];
 
-		foreach ( $fees as $fee ) {
+		foreach ($fees as $fee) {
 			$feeId    = $fee['id'] ?? '';
 			$feePrice = 0.0;
 
-			switch ( $fee['type'] ) {
+			switch ($fee['type']) {
 				case 'per_guest_per_day':
 					$feePrice = $adults * $fee['amount']['adults'] + $children * $fee['amount']['children'];
 
-					if ( ! $fee['limit'] ) {
+					if (! $fee['limit']) {
 						$feePrice *= $nights;
 					} else {
-						$feePrice *= min( $nights, $fee['limit'] );
+						$feePrice *= min($nights, $fee['limit']);
 					}
 
 					break;
 
 				case 'per_room_per_day':
-					if ( ! $fee['limit'] ) {
+					if (! $fee['limit']) {
 						$feePrice = $fee['amount'] * $nights;
 					} else {
-						$feePrice = $fee['amount'] * min( $nights, $fee['limit'] );
+						$feePrice = $fee['amount'] * min($nights, $fee['limit']);
 					}
 					break;
 
 				case 'per_room_percentage':
-					$feePrice = $roomDiscountTotal * ( $fee['amount'] / 100 );
+					$feePrice = $roomDiscountTotal * ($fee['amount'] / 100);
 					break;
 			}
 
 			// Calc discount
-			if ( ! is_null( $this->coupon )
-				&& $this->coupon->isApplicableForRoomType( $roomTypeId )
-				&& $this->coupon->isApplicableForFee( $feeId )
+			if (
+				! is_null($this->coupon)
+				&& $this->coupon->isApplicableForRoomType($roomTypeId)
+				&& $this->coupon->isApplicableForFee($feeId)
 			) {
-				$discount = $this->coupon->calcFeeDiscount( $feePrice );
+				$discount = $this->coupon->calcFeeDiscount($feePrice);
 			} else {
 				$discount = 0.0;
 			}
@@ -461,10 +500,11 @@ class PriceBreakdownHelper {
 		}
 
 		// Limit fixed discount
-		if ( ! is_null( $this->coupon )
+		if (
+			! is_null($this->coupon)
 			&& $this->coupon->getFeeDiscountType() == CouponCPT::TYPE_FEE_FIXED
 		) {
-			$feesBreakdown['discount'] = min( $feesBreakdown['discount'], $this->coupon->getFeeAmount() );
+			$feesBreakdown['discount'] = min($feesBreakdown['discount'], $this->coupon->getFeeAmount());
 		}
 
 		// Prevent total less than 0
@@ -490,44 +530,45 @@ class PriceBreakdownHelper {
 	 *     'total' => float,
 	 * ]
 	 */
-	protected function getRoomTaxesBreakdown( ReservedRoom $reservedRoom, float $roomDiscountTotal ) {
+	protected function getRoomTaxesBreakdown(ReservedRoom $reservedRoom, float $roomDiscountTotal)
+	{
 		$nights     = $this->booking->getNightsCount();
 		$adults     = $reservedRoom->getAdults();
 		$children   = $reservedRoom->getChildren();
 		$roomTypeId = $reservedRoom->getRoomTypeId();
 
-		$taxes = MPHB()->settings()->taxesAndFees()->getAccommodationTaxes( $roomTypeId );
+		$taxes = MPHB()->settings()->taxesAndFees()->getAccommodationTaxes($roomTypeId);
 
 		$taxesBreakdown = [
 			'list'  => [],
 			'total' => 0.0,
 		];
 
-		foreach ( $taxes as $tax ) {
+		foreach ($taxes as $tax) {
 			$taxPrice = 0.0;
 
-			switch ( $tax['type'] ) {
+			switch ($tax['type']) {
 				case 'per_guest_per_day':
 					$taxPrice = $adults * $tax['amount']['adults'] + $children * $tax['amount']['children'];
 
-					if ( ! $tax['limit'] ) {
+					if (! $tax['limit']) {
 						$taxPrice *= $nights;
 					} else {
-						$taxPrice *= min( $nights, $tax['limit'] );
+						$taxPrice *= min($nights, $tax['limit']);
 					}
 
 					break;
 
 				case 'per_room_per_day':
-					if ( ! $tax['limit'] ) {
+					if (! $tax['limit']) {
 						$taxPrice = $tax['amount'] * $nights;
 					} else {
-						$taxPrice = $tax['amount'] * min( $nights, $tax['limit'] );
+						$taxPrice = $tax['amount'] * min($nights, $tax['limit']);
 					}
 					break;
 
 				case 'per_room_percentage':
-					$taxPrice = $roomDiscountTotal * ( $tax['amount'] / 100 );
+					$taxPrice = $roomDiscountTotal * ($tax['amount'] / 100);
 					break;
 			}
 
@@ -555,7 +596,8 @@ class PriceBreakdownHelper {
 	 *     'total' => float,
 	 * ]
 	 */
-	protected function getServiceTaxesBreakdown( float $servicesTotal ) {
+	protected function getServiceTaxesBreakdown(float $servicesTotal)
+	{
 		$taxes = MPHB()->settings()->taxesAndFees()->getServiceTaxes();
 
 		$taxesBreakdown = [
@@ -563,12 +605,12 @@ class PriceBreakdownHelper {
 			'total' => 0.0,
 		];
 
-		foreach ( $taxes as $tax ) {
+		foreach ($taxes as $tax) {
 			$taxPrice = 0.0;
 
-			switch ( $tax['type'] ) {
+			switch ($tax['type']) {
 				case 'percentage':
-					$taxPrice = $servicesTotal * ( $tax['amount'] / 100 );
+					$taxPrice = $servicesTotal * ($tax['amount'] / 100);
 					break;
 			}
 
@@ -596,7 +638,8 @@ class PriceBreakdownHelper {
 	 *     'total' => float,
 	 * ]
 	 */
-	protected function getFeeTaxesBreakdown( float $feesTotal ) {
+	protected function getFeeTaxesBreakdown(float $feesTotal)
+	{
 		$taxes = MPHB()->settings()->taxesAndFees()->getFeeTaxes();
 
 		$taxesBreakdown = [
@@ -604,12 +647,12 @@ class PriceBreakdownHelper {
 			'total' => 0.0,
 		];
 
-		foreach ( $taxes as $tax ) {
+		foreach ($taxes as $tax) {
 			$taxPrice = 0.0;
 
-			switch ( $tax['type'] ) {
+			switch ($tax['type']) {
 				case 'percentage':
-					$taxPrice = $feesTotal * ( $tax['amount'] / 100 );
+					$taxPrice = $feesTotal * ($tax['amount'] / 100);
 					break;
 			}
 

@@ -21,6 +21,44 @@ class ReservedRoomRepository extends AbstractPostRepository {
 	}
 
 	/**
+	 * Get translated post ID based on current language
+	 *
+	 * @param int $postId
+	 * @param string $language Optional. If not provided, uses current language
+	 * @return int
+	 */
+	protected function getTranslatedId( $postId, $language = null ) {
+		if ( ! function_exists( 'pll_get_post' ) || empty( $postId ) ) {
+			return $postId;
+		}
+
+		if ( $language === null ) {
+			$language = function_exists( 'pll_current_language' ) ? pll_current_language() : null;
+		}
+
+		if ( $language === null ) {
+			return $postId;
+		}
+
+		$translatedId = pll_get_post( $postId, $language );
+		return $translatedId ? $translatedId : $postId;
+	}
+
+	/**
+	 * Get booking language
+	 *
+	 * @param int $bookingId
+	 * @return string|null
+	 */
+	protected function getBookingLanguage( $bookingId ) {
+		if ( ! function_exists( 'pll_get_post_language' ) || empty( $bookingId ) ) {
+			return null;
+		}
+
+		return pll_get_post_language( $bookingId );
+	}
+
+	/**
 	 *
 	 * @param int  $id
 	 * @param bool $force Optional. Default false.
@@ -156,6 +194,7 @@ class ReservedRoomRepository extends AbstractPostRepository {
 	}
 
 	/**
+	 * Map entity to post data with translated IDs
 	 *
 	 * @param Entities\ReservedRoom $entity
 	 * @return \MPHB\Entities\WPPostData
@@ -170,10 +209,23 @@ class ReservedRoomRepository extends AbstractPostRepository {
 			'post_parent' => $entity->getBookingId(),
 		);
 
+		// Lấy ngôn ngữ của booking
+		$bookingLanguage = $this->getBookingLanguage( $entity->getBookingId() );
+
+		// Translate rate_id theo ngôn ngữ của booking
+		$rateId = $entity->getRateId();
+		$translatedRateId = $this->getTranslatedId( $rateId, $bookingLanguage );
+
+		// Translate service IDs
 		$services = array();
 		foreach ( $entity->getReservedServices() as $reservedService ) {
+			$originalServiceId = $reservedService->getOriginalId();
+			
+			// Translate service ID theo ngôn ngữ của booking
+			$translatedServiceId = $this->getTranslatedId( $originalServiceId, $bookingLanguage );
+			
 			$servicesDetails = array(
-				'id'       => $reservedService->getOriginalId(),
+				'id'       => $translatedServiceId, // Lưu ID đã dịch
 				'adults'   => $reservedService->getAdults(),
 				'quantity' => $reservedService->getQuantity(),
 			);
@@ -182,10 +234,10 @@ class ReservedRoomRepository extends AbstractPostRepository {
 
 		$postAtts['post_metas'] = array(
 			'_mphb_room_id'    => $entity->getRoomId(),
-			'_mphb_rate_id'    => $entity->getRateId(),
+			'_mphb_rate_id'    => $translatedRateId, // Lưu rate_id đã dịch
 			'_mphb_adults'     => $entity->getAdults(),
 			'_mphb_children'   => $entity->getChildren(),
-			'_mphb_services'   => $services,
+			'_mphb_services'   => $services, // Lưu services với IDs đã dịch
 			'_mphb_guest_name' => $entity->getGuestName(),
 			'_mphb_uid'        => $entity->getUid(),
 		);
