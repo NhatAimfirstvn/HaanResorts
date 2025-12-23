@@ -172,7 +172,8 @@ class SearchShortcode extends AbstractShortcode {
 	 */
 	private function sanitizeCheckOutDate( $date ) {
 		$checkOutDateObj = \MPHB\Utils\DateUtils::createCheckOutDate( MPHB()->settings()->dateTime()->getDateTransferFormat(), $date );
-		return $checkOutDateObj && ( isset( $this->checkInDate ) && \MPHB\Utils\DateUtils::calcNights( $this->checkInDate, $checkOutDateObj ) >= 1 ) ? $checkOutDateObj : null;
+		$minNights = apply_filters('mphb_search_min_nights', 1);
+		return $checkOutDateObj && ( isset( $this->checkInDate ) && \MPHB\Utils\DateUtils::calcNights( $this->checkInDate, $checkOutDateObj ) >= $minNights ) ? $checkOutDateObj : null;
 	}
 
 	private function sanitizeAttributes( $attributes ) {

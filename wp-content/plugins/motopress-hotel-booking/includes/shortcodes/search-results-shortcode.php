@@ -978,6 +978,7 @@ class SearchResultsShortcode extends AbstractShortcode {
 	public function renderBookButton() {
 		$roomType      = MPHB()->getCurrentRoomType();
 		$maxRoomsCount = isset( $this->availableRoomsCount[ $roomType->getOriginalId() ] ) ? $this->availableRoomsCount[ $roomType->getOriginalId() ] : 0;
+		$maxRoomsCount = apply_filters( 'mphb_max_rooms_count', $maxRoomsCount, $roomType );
 		$roomPrice     = apply_filters( 'mphb_sc_search_results_data_room_price', mphb_get_room_type_period_price( $this->checkInDate, $this->checkOutDate, $roomType ) );
 		?>
 		<div class="mphb-reserve-room-section"
