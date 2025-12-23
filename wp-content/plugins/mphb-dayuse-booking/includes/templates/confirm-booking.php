@@ -36,7 +36,7 @@ if ($check_out) {
     foreach ($rooms as $room_type_id => $data) {
         $qty = intval($data['qty'] ?? 0);
         $room_ids = isset($data['room_ids']) ? array_map('intval', (array) $data['room_ids']) : [];
-        $rate_id = get_rate_id_by_booking_type($room_type->ID, $booking_type = 'day-use');
+        $rate_id = get_rate_id_by_booking_type($room_type_id, $booking_type = 'day-use');
         if ($qty <= 0 || count(value: $room_ids) < $qty) {
             echo "<p>Lỗi: Không đủ phòng khả dụng hoặc dữ liệu không hợp lệ cho loại phòng {$room_type_id}.</p>";
             return ob_get_clean();
@@ -46,7 +46,6 @@ if ($check_out) {
             echo "<p>Lỗi: Loại phòng {$room_type_id} không tồn tại.</p>";
             return ob_get_clean();
         }
-        $rate_id = get_rate_id_by_booking_type($room_post->ID, $booking_type = 'day-use');
         $rate_title = get_the_title($rate_id);
         $roomType = MPHB()->getRoomTypeRepository()->findById($room_type_id);
         $price = get_dayuse_price_for_room_type($room_post->ID, $check_in, 'day-use');
@@ -56,7 +55,7 @@ if ($check_out) {
         echo "<div class='mphb-room-block'>";
         echo "<h3>{$room_post->post_title} × {$qty}</h3>";
         echo '<p><strong>' . esc_html(pll__('Rate')) . " ({$rate_title}):</strong> "
-            . number_format($price, 0, ',', '.') . '₫ / ' . esc_html(pll__('Accommodation')) . '</p>';
+            . number_format($price, 0, ',', '.') . '₫ / ' . esc_html(pll__('per day')) . '</p>';
         // --- Loop từng phòng instance
         for ($i = 1; $i <= $qty; $i++) {
             $room_index = count($selected_rooms);
@@ -65,7 +64,7 @@ if ($check_out) {
                 echo "<p>Lỗi: Không có room_id hợp lệ cho phòng {$i} của loại phòng {$room_type_id}.</p>";
                 return ob_get_clean();
             }
-            echo "<div class='mphb-room-instance'>";
+            echo "<div class='mphb-room-details'>";
             echo '<h4>' . esc_html(pll__('Accommodation')) . " #{$i}</h4>";
             // --- Services per room (đa ngôn ngữ)
             $service_ids = maybe_unserialize(get_post_meta($room_type_id, 'mphb_services', true));
@@ -74,41 +73,49 @@ if ($check_out) {
             if (!empty($service_ids) && is_array($service_ids)) {
 
                 foreach ($service_ids as $sv_id) {
-                    // Lấy ID bản dịch của service hiện tại theo ngôn ngữ
                     $translated_id = function_exists('pll_get_post') ? pll_get_post($sv_id, $current_lang) : false;
-
-                    // Nếu có bản dịch thì dùng, không có thì dùng gốc
                     $target_id = $translated_id ?: $sv_id;
-
-                    // Lấy object service đúng ngôn ngữ
                     $service = MPHB()->getServiceRepository()->findById($target_id);
-
                     if ($service) {
                         $services[] = $service;
                     }
                 }
             }
-            $default_adults = esc_html(pll__('— Select —'));
-            $default_children = esc_html(pll__('— Select —'));
 
+            $default_text = '— ' . esc_html(pll__('Select')) . ' —';
             $room_unique_id = $room_type_id . '-' . $i;
-            echo "<p class='mphb-adults-chooser'><label>" . esc_html(pll__('Adults')) . " *<select name='rooms[{$room_type_id}][{$room_index}][adults]' class='room-adult-select mphb_sc_checkout-guests-chooser mphb_checkout-guests-chooser' data-room-uid='{$room_unique_id}' required>";
-            echo "<option value='' selected disabled>$default_adults</option>";
-            for ($a = 1; $a <= $max_adults; $a++)
-                echo "<option value='{$a}' " . ($a == $default_adults ? 'selected' : '') . ">{$a}</option>";
-            echo "</select></label></p>";
 
-            echo "<p class='mphb-children-chooser'><label>" . esc_html(pll__('Children')) . " *<select name='rooms[{$room_type_id}][{$room_index}][children]' class='room-child-select mphb_sc_checkout-guests-chooser mphb_checkout-guests-chooser' data-room-uid='{$room_unique_id}' required>";
-            echo "<option value='' selected disabled>$default_children</option>";
-            for ($c = 0; $c <= $max_children; $c++)
-                echo "<option value='{$c}' " . ($c == $default_children ? 'selected' : '') . ">{$c}</option>";
-            echo "</select></label></p>";
+            // Adults select
+            $adults_id = "mphb-room-details-{$room_index}-adults";
+            echo "<p class='mphb-adults-chooser'>";
+            echo "<label for='{$adults_id}'>" . esc_html(pll__('Adults')) . " <abbr title='" . esc_attr(pll__('Required')) . "'>*</abbr></label>";
+            echo "<select name='mphb-room-details[{$room_index}][adults]' id='{$adults_id}' class='room-adult-select mphb_sc_checkout-guests-chooser mphb_checkout-guests-chooser' required='required' data-max-allowed='{$max_adults}' data-room-uid='{$room_unique_id}'>";
+            echo "<option value=''>{$default_text}</option>";
+            for ($a = 1; $a <= $max_adults; $a++) {
+                echo "<option value='{$a}'>{$a}</option>";
+            }
+            echo "</select>";
+            echo "</p>";
 
-            echo "<p><label>" . esc_html(pll__('Full Guest Name')) . "<input type='text' name='rooms[{$room_type_id}][{$room_index}][guest_name]' required></label></p>";
+            // Children select
+            $children_id = "mphb-room-details-{$room_index}-children";
+            echo "<p class='mphb-children-chooser'>";
+            echo "<label for='{$children_id}'>" . esc_html(pll__('Children')) . " <abbr title='" . esc_attr(pll__('Required')) . "'>*</abbr></label>";
+            echo "<select name='mphb-room-details[{$room_index}][children]' id='{$children_id}' class='room-child-select mphb_sc_checkout-guests-chooser mphb_checkout-guests-chooser' required='required' data-max-allowed='{$max_children}' data-room-uid='{$room_unique_id}'>";
+            echo "<option value=''>{$default_text}</option>";
+            for ($c = 0; $c <= $max_children; $c++) {
+                echo "<option value='{$c}'>{$c}</option>";
+            }
+            echo "</select>";
+            echo "</p>";
+
+            echo "<p><label for='guest_name_{$room_index}'>" . esc_html(pll__('Full Guest Name')) . " <abbr title='" . esc_attr(pll__('Required')) . "'>*</abbr></label>";
+            echo "<input type='text' id='guest_name_{$room_index}' name='rooms[{$room_type_id}][{$room_index}][guest_name]' required></p>";
+
             echo "<input type='hidden' name='rooms[{$room_type_id}][{$room_index}][room_id]' value='{$room_id}'>";
             echo "<input type='hidden' name='rooms[{$room_type_id}][{$room_index}][rate_id]' value='{$rate_id}'>";
 
-            echo "</div>"; // end room instance
+            echo "</div>";
 
             $booking = new \MPHB\Entities\Booking([
                 'check_in_date' => new DateTime($check_in),
@@ -124,8 +131,7 @@ if ($check_out) {
                 $sv_id_original = $service->getOriginalId();
                 // Lấy ID bản dịch
                 $sv_id_for_lang = function_exists('pll_get_post') ? pll_get_post($sv_id_original, $current_lang) : $sv_id_original;
-                // Nếu không có bản dịch, quay lại dùng ID gốc
-                $target_id = $sv_id_for_lang ?: $sv_id_original;
+                $target_id = $sv_id_for_lang;
                 $sv_title = esc_html($service->getTitle());
                 $sv_price = floatval(get_post_meta($target_id, 'mphb_price', true));
                 $sv_price_formatted = number_format($sv_price, 0, ',', '.') . "₫";
@@ -146,7 +152,7 @@ if ($check_out) {
             } else {
                 echo "<p><em>Không có dịch vụ nào khả dụng cho phòng này.</em></p>";
             }
-            echo "</section>";
+            echo "</section>";            
             $selected_rooms[] = [
                 'id' => $room_type_id,
                 'room_id' => $room_id,
@@ -154,58 +160,56 @@ if ($check_out) {
                 'title' => $room_post->post_title,
                 'instance' => $i,
                 'base' => $price,
-                'adults' => $default_adults,
-                'children' => $default_children,
+                'adults' => '',
+                'children' => '',
                 'index' => $room_index,
                 'service_ids' => [],
             ];
         }
-
+        
         echo "</div>";
     }
     ?>
 </section>
-<section class="mphb-booking-details mphb-checkout-section">
-    <?php
-    // --- PRICE BREAKDOWN ---
-    if ($selected_rooms) {
-        echo '<section id="mphb-price-details" class="mphb-room-price-breakdown-wrapper">';
-        echo '<h4 class="mphb-price-breakdown-title">' . esc_html(pll__('Price Breakdown')) . '</h4>';
-        echo '<table class="mphb-price-breakdown" cellspacing="0"><tbody>';
+<?php
+// --- PRICE BREAKDOWN ---
+if ($selected_rooms) {
+    echo '<section id="mphb-price-details" class="mphb-booking-details mphb-checkout-section mphb-room-price-breakdown-wrapper">';
+    echo '<h4 class="mphb-price-breakdown-title">' . esc_html(pll__('Price Breakdown')) . '</h4>';
+    echo '<table class="mphb-price-breakdown" cellspacing="0"><tbody>';
 
-        foreach ($selected_rooms as $index => $room) {
-            $room_title = esc_html($room['title']);
-            $instance = $room['instance'];
-            $base = $room['base'];
-            $adults = $room['adults'];
-            $children = $room['children'];
+    foreach ($selected_rooms as $index => $room) {
+        $room_title = esc_html($room['title']);
+        $instance = $room['instance'];
+        $base = $room['base'];
+        $adults = $room['adults'];
+        $children = $room['children'];
 
-            echo '<tr class="mphb-price-breakdown-booking mphb-price-breakdown-group ">';
-            echo '<td colspan="2">';
-            echo "<a href='#' class='mphb-price-breakdown-toggle' data-room-index='{$index}'>
+        echo '<tr class="mphb-price-breakdown-booking mphb-price-breakdown-group ">';
+        echo '<td colspan="2">';
+        echo "<a href='#' class='mphb-price-breakdown-toggle' data-room-index='{$index}'>
                     <span class='toggle-show mphb-inner-icon '>+</span><span class='toggle-hide mphb-inner-icon ' style='display:none'>−</span>
                     #{$instance} {$room_title} — <span class='room-total'>" . number_format($base, 0, ',', '.') . "₫</span>
                   </a>";
 
-            echo '<div class="mphb-price-breakdown-details" data-room-index="' . $index . '" style="display:none; padding:10px 0;">';
-            $room_uid = $room['id'] . '-' . $room['instance'];
-            echo "<p>Adults: <span class='room-adults' data-room-uid='{$room_uid}'>{$adults}</span></p>";
-            echo "<p>Children: <span class='room-children' data-room-uid='{$room_uid}'>{$children}</span></p>";
-            echo "<p>Subtotal: <span class='room-subtotal' data-base='{$base}' data-room-index='{$index}'>" . number_format($base, 0, ',', '.') . "₫</span></p>";
-            echo '</div>';
-            echo '</td></tr>';
-        }
-
-        echo '</tbody>';
-        echo '<tfoot><tr class="mphb-price-breakdown-total">';
-        echo '<th colspan="2">' . esc_html(pll__('Total')) . '</th>';
-        echo '<th><span class="mphb-price" id="grand-total">' . number_format(array_sum(array_column($selected_rooms, 'base')), 0, ',', '.') . '₫</span></th>';
-        echo '</tr></tfoot>';
-        echo '</table></section>';
+        echo '<div class="mphb-price-breakdown-details" data-room-index="' . $index . '" style="display:none; padding:10px 0;">';
+        $room_uid = $room['id'] . '-' . $room['instance'];
+        echo "<p>" . esc_html(pll__('Adults')) . ": <span class='room-adults' data-room-uid='{$room_uid}'>{$adults}</span></p>";
+        echo "<p>" . esc_html(pll__('Children')) . ": <span class='room-children' data-room-uid='{$room_uid}'>{$children}</span></p>";
+        echo "<p>" . esc_html(pll__('Subtotal')) . ": <span class='room-subtotal' data-base='{$base}' data-room-index='{$index}'>" . number_format($base, 0, ',', '.') . "₫</span></p>";
+        echo '</div>';
+        echo '</td></tr>';
     }
-    // --- JS Realtime ---
-    ?>
-</section>
+
+    echo '</tbody>';
+    echo '<tfoot><tr class="mphb-price-breakdown-total">';
+    echo '<th colspan="2">' . esc_html(pll__('Total')) . '</th>';
+    echo '<th><span class="mphb-price" id="grand-total">' . number_format(array_sum(array_column($selected_rooms, 'base')), 0, ',', '.') . '₫</span></th>';
+    echo '</tr></tfoot>';
+    echo '</table></section>';
+}
+// --- JS Realtime ---
+?>
 <section class="mphb-checkout-section mphb-customer-details">
     <form id="custom-booking-form" method="POST">
         <?php wp_nonce_field('mphb_custom_booking_action', 'mphb_custom_booking_nonce'); ?>
@@ -214,12 +218,12 @@ if ($check_out) {
         <input type="hidden" name="check_in_date" value="<?php echo esc_attr($check_in); ?>">
         <input type="hidden" name="check_out_date" value="<?php echo esc_attr($check_out); ?>">
         <?php foreach ($selected_rooms as $idx => $room): ?>
-            <input type="hidden" name="rooms[<?php echo $room['id']; ?>][<?php echo $idx; ?>][adults]"
-                value="<?php echo $room['adults']; ?>">
-            <input type="hidden" name="rooms[<?php echo $room['id']; ?>][<?php echo $idx; ?>][children]"
-                value="<?php echo $room['children']; ?>">
-            <input type="hidden" name="rooms[<?php echo $room['id']; ?>][<?php echo $idx; ?>][guest_name]"
-                value="<?php echo esc_attr($room['guest_name'] ?? ''); ?>">
+            <input type="hidden" class="hidden-adults" name="rooms[<?php echo $room['id']; ?>][<?php echo $idx; ?>][adults]"
+                value="" data-room-type="<?php echo $room['id']; ?>" data-room-index="<?php echo $idx; ?>">
+            <input type="hidden" class="hidden-children" name="rooms[<?php echo $room['id']; ?>][<?php echo $idx; ?>][children]"
+                value="" data-room-type="<?php echo $room['id']; ?>" data-room-index="<?php echo $idx; ?>">
+            <input type="hidden" class="hidden-guest-name" name="rooms[<?php echo $room['id']; ?>][<?php echo $idx; ?>][guest_name]"
+                value="" data-room-type="<?php echo $room['id']; ?>" data-room-index="<?php echo $idx; ?>">
             <input type="hidden" name="rooms[<?php echo $room['id']; ?>][<?php echo $idx; ?>][services]" value="">
             <input type="hidden" name="rooms[<?php echo $room['id']; ?>][<?php echo $idx; ?>][room_id]"
                 value="<?php echo esc_attr($room['room_id']); ?>">
@@ -256,14 +260,14 @@ if ($check_out) {
             </label>
         </p>
         <p class='mphb-total-price'>
-    <?php
-    echo '<output>' . esc_html(pll__('Total')) . ': ';
-    echo "<span class='mphb-price'>" . number_format(array_sum(array_column($selected_rooms, 'base')), 0, ',', '.') . "₫ </span> </output>"
-    ?>
-</p>
-<p class="mphb_sc_checkout-submit-wrapper">
-    <input type="submit" name="custom_booking_submit" value="<?php echo esc_attr(pll__('BOOK NOW')); ?>">
-</p>
+            <?php
+            echo '<output>' . esc_html(pll__('Total')) . ': ';
+            echo "<span class='mphb-price mphb-total-price-field'>" . number_format(array_sum(array_column($selected_rooms, 'base')), 0, ',', '.') . "₫ </span> </output>"
+            ?>
+        </p>
+        <p class="mphb_sc_checkout-submit-wrapper">
+            <input type="submit" name="custom_booking_submit" value="<?php echo esc_attr(pll__('BOOK NOW')); ?>">
+        </p>
     </form>
 </section>
 <script>
@@ -288,50 +292,35 @@ if ($check_out) {
         });
 
         // === 2. Cập nhật giá theo phòng ===
-function updateRoomPrice(roomIndex) {
-    const subtotalEl = document.querySelector('.room-subtotal[data-room-index="' + roomIndex + '"]');
-    if (!subtotalEl) return;
+        function updateRoomPrice(roomIndex) {
+            const subtotalEl = document.querySelector('.room-subtotal[data-room-index="' + roomIndex + '"]');
+            if (!subtotalEl) return;
 
-    const base = parseFloat(subtotalEl.dataset.base) || 0;
-    let serviceTotal = 0;
-    const selectedServiceIds = [];
+            const base = parseFloat(subtotalEl.dataset.base) || 0;
+            let serviceTotal = 0;
+            const selectedServices = [];
 
-    // Tìm tất cả checkbox của phòng này đang được check
-    const checkboxes = document.querySelectorAll('.mphb-service-checkbox[data-room-index="' + roomIndex + '"]:checked');
-    
-    checkboxes.forEach(s => {
-        serviceTotal += parseFloat(s.dataset.price) || 0;
-        selectedServiceIds.push(s.value); // Đây là ID đã dịch ($target_id)
-    });
+            // Chỉ tính service thuộc cùng phòng (roomIndex)
+            document.querySelectorAll('.mphb-service-checkbox[data-room-index="' + roomIndex + '"]:checked').forEach(s => {
+                serviceTotal += parseFloat(s.dataset.price) || 0;
+                selectedServices.push(s.value);
+            });
 
-    // Cập nhật Subtotal hiển thị
-    const newSubtotal = base + serviceTotal;
-    subtotalEl.textContent = '₫' + newSubtotal.toLocaleString('vi-VN');
+            // Cập nhật subtotal hiển thị
+            const newSubtotal = base + serviceTotal;
+            subtotalEl.textContent = '₫' + newSubtotal.toLocaleString('vi-VN');
 
-    // Cập nhật tổng trên tiêu đề toggle
-    const toggleTotalEl = document.querySelector('.mphb-price-breakdown-toggle[data-room-index="' + roomIndex + '"] .room-total');
-    if (toggleTotalEl) toggleTotalEl.textContent = '₫' + newSubtotal.toLocaleString('vi-VN');
+            // Cập nhật toggle hiển thị
+            const toggleTotalEl = document.querySelector('.mphb-price-breakdown-toggle[data-room-index="' + roomIndex + '"] .room-total');
+            if (toggleTotalEl) toggleTotalEl.textContent = '₫' + newSubtotal.toLocaleString('vi-VN');
 
-    // Cập nhật vào INPUT HIDDEN để gửi đi (PHẦN QUAN TRỌNG)
-    if (checkboxes.length > 0) {
-        const roomTypeId = checkboxes[0].dataset.roomTypeId;
-        const serviceInput = document.querySelector(`input[name="rooms[${roomTypeId}][${roomIndex}][services]"]`);
-        if (serviceInput) {
-            // Lưu chuỗi ID cách nhau bằng dấu phẩy
-            serviceInput.value = selectedServiceIds.join(',');
-        }
-    } else {
-        // Nếu không chọn service nào, xóa giá trị trắng
-        const anyCb = document.querySelector(`.mphb-service-checkbox[data-room-index="${roomIndex}"]`);
-        if (anyCb) {
-            const roomTypeId = anyCb.dataset.roomTypeId;
+            // Cập nhật input hidden service
+            const cbExample = document.querySelector(`.mphb-service-checkbox[data-room-index="${roomIndex}"]`);
+            const roomTypeId = cbExample.name.match(/rooms\[(\d+)\]/)[1];
             const serviceInput = document.querySelector(`input[name="rooms[${roomTypeId}][${roomIndex}][services]"]`);
-            if (serviceInput) serviceInput.value = "";
+            if (serviceInput) serviceInput.value = selectedServices.join(',');
+            updateGrandTotal();
         }
-    }
-
-    updateGrandTotal();
-}
         // === 3. Cập nhật tổng toàn bộ phòng ===
         function updateGrandTotal() {
             let grand = 0;
@@ -380,7 +369,7 @@ function updateRoomPrice(roomIndex) {
                 }
             });
         });
-        // === 5. Đồng bộ Adults / Children theo mỗi phòng ===
+        // === 5. Đồng bộ Adults / Children / Guest Name theo mỗi phòng ===
         document.querySelectorAll('.room-adult-select').forEach(select => {
             select.addEventListener('change', function() {
                 const roomUid = this.dataset.roomUid;
@@ -390,12 +379,11 @@ function updateRoomPrice(roomIndex) {
                 const display = document.querySelector(`.room-adults[data-room-uid="${roomUid}"]`);
                 if (display) display.textContent = val;
 
-                // Cập nhật input hidden tương ứng
-                const match = this.name.match(/rooms\[(\d+)\]\[(\d+)\]/);
+                // Cập nhật input hidden tương ứng theo mphb-room-details
+                const match = this.name.match(/mphb-room-details\[(\d+)\]/);
                 if (match) {
-                    const roomTypeId = match[1];
-                    const roomIndex = match[2];
-                    const hiddenInput = document.querySelector(`input[name="rooms[${roomTypeId}][${roomIndex}][adults]"]`);
+                    const roomIndex = match[1];
+                    const hiddenInput = document.querySelector(`.hidden-adults[data-room-index="${roomIndex}"]`);
                     if (hiddenInput) hiddenInput.value = val;
                 }
             });
@@ -410,15 +398,33 @@ function updateRoomPrice(roomIndex) {
                 const display = document.querySelector(`.room-children[data-room-uid="${roomUid}"]`);
                 if (display) display.textContent = val;
 
-                // Cập nhật input hidden tương ứng
-                const match = this.name.match(/rooms\[(\d+)\]\[(\d+)\]/);
+                // Cập nhật input hidden tương ứng theo mphb-room-details
+                const match = this.name.match(/mphb-room-details\[(\d+)\]/);
                 if (match) {
-                    const roomTypeId = match[1];
-                    const roomIndex = match[2];
-                    const hiddenInput = document.querySelector(`input[name="rooms[${roomTypeId}][${roomIndex}][children]"]`);
+                    const roomIndex = match[1];
+                    const hiddenInput = document.querySelector(`.hidden-children[data-room-index="${roomIndex}"]`);
                     if (hiddenInput) hiddenInput.value = val;
                 }
             });
+        });
+
+        document.getElementById('custom-booking-form').addEventListener('submit', function(e) {
+            let valid = true;
+
+            document.querySelectorAll('.mphb-room-details').forEach(room => {
+                const adult = room.querySelector('.room-adult-select');
+                const child = room.querySelector('.room-child-select');
+
+                if (!adult.value || !child.value) {
+                    valid = false;
+                }
+            });
+
+            if (!valid) {
+                e.preventDefault();
+                alert("<?php echo esc_js(pll__('Adults and Children are required for all rooms.')); ?>");
+
+            }
         });
 
     });
@@ -456,9 +462,14 @@ function updateRoomPrice(roomIndex) {
         }
     </style>
     <div id="booking-toast">
-        <h4>Reservation submitted</h4><br>
-        <p>Details of your reservation have just been sent to you in a confirmation email. Please check your inbox to
-            complete booking.</p>
+        <h4><?php echo esc_html(pll__('Reservation submitted')); ?></h4><br>
+        <p>
+            <?php
+            echo esc_html(
+                pll__('Details of your reservation have just been sent to you in a confirmation email. Please check your inbox to complete booking.')
+            );
+            ?>
+        </p>
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
