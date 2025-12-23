@@ -117,10 +117,20 @@ class BookingView {
 									<td><?php echo esc_html( $roomBreakdown['room']['children'] ); ?></td>
 								</tr>
 							<?php } ?>
+							<?php
+								$rateName = mb_strtolower( $roomBreakdown['room']['rate'] );
+								$isDayUse = in_array(
+									$rateName,
+									['day-use', 'trong ngày'],
+									true
+								);
+								?>
+							<?php if ( ! $isDayUse ) : ?>
 							<tr class="<?php echo esc_attr( "{$foldedClass} mphb-price-breakdown-nights" ); ?>">
 								<td colspan="<?php echo ( $useThreeColumns ? 2 : 1 ); ?>"><?php esc_html_e( 'Nights', 'motopress-hotel-booking' ); ?></td>
 								<td><?php echo count( $roomBreakdown['room']['list'] ); ?></td>
 							</tr>
+							<?php endif; ?>
 							<tr class="<?php echo esc_attr( "{$foldedClass} mphb-price-breakdown-dates" ); ?>">
 								<th colspan="<?php echo ( $useThreeColumns ? 2 : 1 ); ?>"><?php esc_html_e( 'Dates', 'motopress-hotel-booking' ); ?></th>
 								<th class="mphb-table-price-column"><?php esc_html_e( 'Amount', 'motopress-hotel-booking' ); ?></th>
